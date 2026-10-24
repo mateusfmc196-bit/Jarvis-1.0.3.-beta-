@@ -1,0 +1,1080 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#04080f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Jarvis</title>
+<style>
+  :root { --cor: #3ee6ff; --cor-rgb: 62,230,255; --fundo: #04080f; --texto: #d8f6ff; --suave: #7fa3b5; --fonte: 17px; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body {
+    background: radial-gradient(900px 700px at 50% 30%, #0a1a2c 0%, var(--fundo) 70%);
+    color: var(--texto);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  #cv { position: fixed; inset: 0; z-index: 0; touch-action: none; }
+
+  /* ---- topo ---- */
+  #topo {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 5;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: calc(12px + env(safe-area-inset-top)) 16px 10px;
+  }
+  .marca b { display: block; font-size: 15px; letter-spacing: .34em; text-transform: uppercase; color: var(--cor); text-shadow: 0 0 12px rgba(var(--cor-rgb), .7); }
+  .marca small { font-size: 11.5px; color: var(--suave); letter-spacing: .12em; text-transform: uppercase; }
+  .acoes { display: flex; gap: 8px; }
+  .icone {
+    width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+    border: 1px solid rgba(var(--cor-rgb), .35); background: rgba(var(--cor-rgb), .06);
+    color: var(--cor); font-size: 18px; backdrop-filter: blur(6px);
+  }
+
+  /* ---- palco: texto da conversa ---- */
+  #palco {
+    position: fixed; left: 0; right: 0; z-index: 4; padding: 0 16px;
+    bottom: calc(126px + env(safe-area-inset-bottom));
+    display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+  }
+  #eu { font-size: 13px; color: var(--suave); letter-spacing: .03em; white-space: pre-wrap; max-height: 3.3em; overflow: hidden; }
+  #eu:not(:empty)::before { content: "VOCE  "; color: rgba(var(--cor-rgb), .65); letter-spacing: .2em; font-size: 11px; }
+  .holo {
+    pointer-events: auto; position: relative; padding: 14px 16px;
+    background: linear-gradient(180deg, rgba(var(--cor-rgb), .09), rgba(4, 8, 15, .6));
+    border: 1px solid rgba(var(--cor-rgb), .2); border-radius: 3px; backdrop-filter: blur(8px);
+    animation: surge .35s ease-out;
+  }
+  .holo::before, .holo::after { content: ""; position: absolute; width: 16px; height: 16px; border: 2px solid var(--cor); pointer-events: none; }
+  .holo::before { top: -2px; left: -2px; border-right: 0; border-bottom: 0; }
+  .holo::after { bottom: -2px; right: -2px; border-left: 0; border-top: 0; }
+  .holo.erro { border-color: #6b2a33; background: linear-gradient(180deg, rgba(255,77,94,.1), rgba(4,8,15,.6)); }
+  .holo.erro::before, .holo.erro::after { border-color: #ff4d5e; }
+  #resposta {
+    font-size: var(--fonte); line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere;
+    max-height: 32dvh; overflow-y: auto; text-shadow: 0 0 10px rgba(var(--cor-rgb), .22);
+  }
+  @keyframes surge { from { opacity: 0; transform: translateY(8px); } }
+
+  /* ---- barra de entrada ---- */
+  #barra {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
+    display: flex; gap: 10px; align-items: flex-end;
+    padding: 12px 14px calc(12px + env(safe-area-inset-bottom));
+    background: linear-gradient(0deg, rgba(4,8,15,.96) 40%, rgba(4,8,15,0));
+  }
+  #texto {
+    flex: 1; resize: none; min-height: 46px; max-height: 110px;
+    background: rgba(var(--cor-rgb), .06); color: var(--texto);
+    border: 1px solid rgba(var(--cor-rgb), .3); border-radius: 23px;
+    padding: 12px 18px; font: inherit; font-size: 16px; outline: none; backdrop-filter: blur(6px);
+  }
+  #texto::placeholder { color: var(--suave); }
+  #texto:focus { border-color: var(--cor); box-shadow: 0 0 0 3px rgba(var(--cor-rgb), .15); }
+  .redondo {
+    flex: none; width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center;
+    border: 1px solid rgba(var(--cor-rgb), .5); background: rgba(var(--cor-rgb), .08);
+    color: var(--cor); font-size: 19px;
+  }
+  #enviar { background: var(--cor); color: var(--fundo); border-color: var(--cor); font-weight: 700; }
+  #mic.ouvindo { background: #ff4d6d; border-color: #ff4d6d; color: #fff; animation: pulsa 1s infinite; }
+  @keyframes pulsa { 50% { transform: scale(.92); opacity: .75; } }
+  button { font: inherit; cursor: pointer; }
+  button:disabled { opacity: .45; }
+
+  /* ---- folhas (historico e configuracoes) ---- */
+  #veu { position: fixed; inset: 0; z-index: 8; background: rgba(0, 0, 0, .55); opacity: 0; pointer-events: none; transition: opacity .25s; }
+  #veu.aberta { opacity: 1; pointer-events: auto; }
+  .folha {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 9; max-height: 82dvh; overflow-y: auto;
+    background: rgba(6, 13, 23, .97); backdrop-filter: blur(14px);
+    border-top: 1px solid rgba(var(--cor-rgb), .4); border-radius: 18px 18px 0 0;
+    padding: 16px 18px calc(22px + env(safe-area-inset-bottom));
+    transform: translateY(105%); transition: transform .3s ease;
+  }
+  .folha.aberta { transform: none; }
+  .folha h2 { margin: 0 0 6px; font-size: 14px; letter-spacing: .28em; text-transform: uppercase; color: var(--cor); }
+  .fechar { position: absolute; top: 10px; right: 14px; background: none; border: 0; color: var(--suave); font-size: 22px; padding: 6px 10px; }
+  .linha { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px 0; border-bottom: 1px solid rgba(var(--cor-rgb), .12); }
+  .campo { padding: 13px 0; border-bottom: 1px solid rgba(var(--cor-rgb), .12); }
+  .campo > span, .linha > span { display: block; font-size: 14.5px; }
+  .campo small { color: var(--suave); font-size: 12.5px; }
+  .campo .valor { float: right; color: var(--cor); font-size: 13px; }
+  select, input[type=range], input[type=text], input[type=password] { width: 100%; margin-top: 9px; }
+  input[type=text], input[type=password] { background: #0b1626; color: var(--texto); border: 1px solid rgba(var(--cor-rgb), .3); border-radius: 8px; padding: 11px; font-size: 16px; font-family: inherit; }
+  select { background: #0b1626; color: var(--texto); border: 1px solid rgba(var(--cor-rgb), .3); border-radius: 8px; padding: 11px; font-size: 15px; }
+  input[type=range], input[type=checkbox] { accent-color: var(--cor); }
+  input[type=checkbox] { width: 24px; height: 24px; flex: none; }
+  .cores { display: flex; gap: 14px; margin-top: 10px; }
+  .cor { width: 40px; height: 40px; border-radius: 50%; border: 3px solid transparent; }
+  .cor.sel { border-color: #fff; box-shadow: 0 0 12px currentColor; }
+  .botao { margin-top: 12px; width: 100%; padding: 12px; border-radius: 10px; font-size: 15px; background: rgba(var(--cor-rgb), .1); color: var(--cor); border: 1px solid rgba(var(--cor-rgb), .45); }
+  .nota { color: var(--suave); font-size: 12.5px; margin: 10px 0 0; }
+  .entrada { padding: 10px 0; border-bottom: 1px solid rgba(var(--cor-rgb), .1); font-size: 15px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .entrada .quem { display: block; font-size: 10.5px; letter-spacing: .24em; color: var(--cor); margin-bottom: 3px; }
+  .entrada.voce .quem { color: var(--suave); }
+  /* ---- modos, anexos, plugins, agenda ---- */
+  .modos { position: fixed; left: 0; right: 0; z-index: 5; bottom: calc(74px + env(safe-area-inset-bottom)); display: flex; gap: 8px; padding: 0 14px; overflow-x: auto; scrollbar-width: none; }
+  .modos::-webkit-scrollbar { display: none; }
+  .chip { flex: none; padding: 6px 13px; border-radius: 16px; font-size: 12.5px; border: 1px solid rgba(var(--cor-rgb), .35); background: rgba(4, 8, 15, .7); color: var(--suave); backdrop-filter: blur(6px); }
+  .chip.on { background: var(--cor); color: var(--fundo); border-color: var(--cor); font-weight: 700; }
+  .redondo.on { background: var(--cor); color: var(--fundo); }
+  #acoesHolo { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  #acoesHolo:empty { display: none; }
+  .mini { padding: 8px 13px; border-radius: 8px; font-size: 13px; background: rgba(var(--cor-rgb), .1); color: var(--cor); border: 1px solid rgba(var(--cor-rgb), .45); }
+  #acoesHolo iframe { width: 100%; height: 80px; border: 0; border-radius: 12px; }
+  .ev { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid rgba(var(--cor-rgb), .1); font-size: 15px; }
+  .ev button { background: none; border: 0; color: #ff4d5e; font-size: 22px; padding: 2px 10px; }
+  .duas { display: flex; gap: 8px; }
+  input[type=date], input[type=time] { width: 100%; margin-top: 9px; background: #0b1626; color: var(--texto); border: 1px solid rgba(var(--cor-rgb), .3); border-radius: 8px; padding: 10px; font-size: 16px; font-family: inherit; color-scheme: dark; }
+  .plug { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 11px 0; border-bottom: 1px solid rgba(var(--cor-rgb), .12); }
+  .plug b { font-size: 14.5px; font-weight: 600; }
+  .plug small { display: block; color: var(--suave); font-size: 12.5px; margin-top: 2px; }
+  .linha small { color: var(--suave); font-size: 12.5px; }
+  .estilos { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<header id="topo">
+  <div class="marca"><b id="nomeTxt">Jarvis</b><small id="estado">online</small></div>
+  <div class="acoes">
+    <button class="icone" id="bAgenda" type="button" aria-label="Agenda">&#128197;</button>
+    <button class="icone" id="bHist" type="button" aria-label="Historico">&#9776;</button>
+    <button class="icone" id="bConfig" type="button" aria-label="Configuracoes">&#9881;</button>
+  </div>
+</header>
+
+<main id="palco">
+  <div id="eu"></div>
+  <div class="holo" id="holo" hidden><div id="resposta"></div><div id="acoesHolo"></div></div>
+</main>
+
+<div class="modos" id="modos">
+  <button class="chip" type="button" data-modo="reflexao">Reflexao</button>
+  <button class="chip" type="button" data-modo="pesquisa">Pesquisa profunda</button>
+  <button class="chip" type="button" data-modo="analise">Analise de codigo</button>
+  <button class="chip" type="button" id="bRotina">Rotina do dia</button>
+</div>
+
+<form id="barra" autocomplete="off">
+  <button class="redondo" id="mic" type="button" aria-label="Falar">&#127908;</button>
+  <button class="redondo" id="anexo" type="button" aria-label="Anexar imagem ou arquivo">&#128206;</button>
+  <textarea id="texto" rows="1" placeholder="Fale com o Jarvis..." enterkeyhint="send"></textarea>
+  <button class="redondo" id="enviar" type="submit" aria-label="Enviar">&#10148;</button>
+</form>
+<input type="file" id="arq" hidden accept="image/*,.txt,.md,.py,.js,.ts,.tsx,.jsx,.html,.css,.json,.csv,.java,.c,.cpp,.h,.cs,.go,.rs,.php,.rb,.sh,.sql,.yml,.yaml,.xml,.log,.ino,.kt,.swift">
+
+<div id="veu"></div>
+
+<section class="folha" id="gaveta">
+  <button class="fechar" type="button" data-fechar aria-label="Fechar">&times;</button>
+  <h2>Historico</h2>
+  <div id="lista"></div>
+  <button class="botao" id="bLimpar" type="button">Limpar historico</button>
+  <p class="nota">O historico fica so na memoria enquanto o app esta aberto e guarda no maximo as ultimas conversas.</p>
+</section>
+
+<section class="folha" id="agenda">
+  <button class="fechar" type="button" data-fechar aria-label="Fechar">&times;</button>
+  <h2>Agenda</h2>
+  <div class="campo"><span>Novo compromisso</span>
+    <input type="text" id="aTitulo" maxlength="80" autocomplete="off" placeholder="ex: dentista">
+    <div class="duas"><input type="date" id="aData"><input type="time" id="aHora"></div>
+    <button class="botao" id="bAdd" type="button">Adicionar</button></div>
+  <div id="aLista"></div>
+  <p class="nota">Fica guardada so neste aparelho. Voce tambem pode falar: "agende dentista sexta as 15h".</p>
+</section>
+
+<section class="folha" id="config">
+  <button class="fechar" type="button" data-fechar aria-label="Fechar">&times;</button>
+  <h2>Configuracoes</h2>
+
+  <div class="campo"><span>Cerebro</span>
+    <select id="cProv">
+      <option value="groq">Groq (gratis)</option>
+      <option value="openrouter">OpenRouter (modelos gratis)</option>
+      <option value="claude">Claude (Anthropic, pago)</option>
+    </select></div>
+  <div class="campo"><span>Chave da API</span>
+    <input type="password" id="cChave" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="cole sua chave aqui">
+    <p class="nota">Fica guardada so neste aparelho. Nunca compartilhe a chave com ninguem.</p></div>
+  <label class="linha"><span>Pesquisar na internet quando precisar<br><small>Para noticias, clima, precos e fatos recentes. Funciona com Groq e Claude.</small></span><input type="checkbox" id="cBusca"></label>
+  <div class="campo"><span>Modelo (opcional)</span>
+    <input type="text" id="cModelo" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="deixe vazio para o padrao"></div>
+  <button class="botao" id="bConexao" type="button">Testar conexao</button>
+  <p class="nota" id="notaConexao"></p>
+
+  <div class="campo" style="margin-top:14px"><span>Nome do assistente</span><input type="text" id="cNome" autocomplete="off" maxlength="24"></div>
+  <div class="campo"><span>Como ele te chama</span><input type="text" id="cApelido" autocomplete="off" maxlength="24" placeholder="ex: chefe"></div>
+  <div class="campo"><span>O que ele deve saber sobre voce</span><input type="text" id="cSobre" autocomplete="off" maxlength="300" placeholder="ex: gosto de F1 e de programar"></div>
+
+  <div class="campo" style="margin-top:14px"><span>Cidade (para o clima)</span>
+    <input type="text" id="cCidade" autocomplete="off" placeholder="ex: Sao Paulo">
+    <p class="nota" id="notaCidade"></p>
+    <button class="botao" id="bLoc" type="button">Usar minha localizacao</button></div>
+  <div class="campo"><span>Playlist do Spotify</span>
+    <input type="text" id="cPlaylist" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="cole o link da playlist"></div>
+  <label class="linha"><span>Rotina ao abrir<br><small>Ao tocar na esfera: clima, agenda, noticias e playlist</small></span><input type="checkbox" id="cRotina"></label>
+  <button class="botao" id="bRodar" type="button">Rodar rotina agora</button>
+  <div class="campo" style="margin-top:14px"><span>Plugins</span><div id="plugs"></div>
+    <p class="nota">Plugins extras ficam na pasta plugins do repositorio e entram pela lista.json.</p></div>
+
+  <div id="blocoVoz" style="margin-top:14px">
+    <label class="linha"><span>Falar as respostas em voz alta</span><input type="checkbox" id="cFalar"></label>
+    <div class="campo"><span>Voz</span><select id="cVoz"></select>
+      <p class="nota" id="notaVoz"></p></div>
+    <div class="campo"><span>Velocidade <b class="valor" id="vVel"></b></span><input type="range" id="cVel" min="0.6" max="1.6" step="0.05"></div>
+    <div class="campo"><span>Tom da voz <b class="valor" id="vTom"></b></span><input type="range" id="cTom" min="0.5" max="1.5" step="0.05"></div>
+    <div class="campo"><span>Estilo de voz</span>
+      <div class="estilos">
+        <button class="mini preset" type="button" data-vel="0.95" data-tom="0.7">Grave</button>
+        <button class="mini preset" type="button" data-vel="1" data-tom="1">Normal</button>
+        <button class="mini preset" type="button" data-vel="1.25" data-tom="1">Agil</button>
+        <button class="mini preset" type="button" data-vel="1.05" data-tom="1.3">Aguda</button>
+      </div>
+      <button class="botao" id="bProx" type="button">Proxima voz</button></div>
+    <button class="botao" id="bTestar" type="button">Testar voz</button>
+  </div>
+  <p class="nota" id="semVoz" hidden>Este navegador nao tem voz sintetizada.</p>
+
+  <div class="campo" style="margin-top:14px"><span>Cor do tema</span>
+    <div class="cores" id="cores"></div></div>
+  <div class="campo"><span>Quantidade de particulas</span>
+    <select id="cDens"><option value="700">Baixa (economiza bateria)</option><option value="1200">Media</option><option value="2000">Alta</option></select></div>
+  <div class="campo"><span>Tamanho do texto</span>
+    <select id="cFonte"><option value="15">Pequeno</option><option value="17">Medio</option><option value="20">Grande</option></select></div>
+  <button class="botao" id="bPadrao" type="button">Voltar ao padrao</button>
+</section>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const TEMAS = { azul: ["#3ee6ff", "62,230,255"], dourado: ["#ffb347", "255,179,71"], verde: ["#4dff9e", "77,255,158"], vermelho: ["#ff4d5e", "255,77,94"] };
+const PADRAO = { falar: false, vozNome: "", vel: 1, tom: 1, cor: "azul", dens: 1200, fonte: 17, prov: "groq", busca: true, cidade: "", lat: null, lon: null, playlist: "", rotina: true, plugins: {}, chave: "", modelo: "", nome: "Jarvis", apelido: "", sobre: "" };
+
+/* ---------- configuracoes (salvas no navegador) ---------- */
+let cfg = Object.assign({}, PADRAO);
+try { const s = localStorage.getItem("jarvis_cfg"); if (s) cfg = Object.assign({}, PADRAO, JSON.parse(s)); } catch (e) {}
+cfg.plugins = Object.assign({}, cfg.plugins || {});
+function salvar() { try { localStorage.setItem("jarvis_cfg", JSON.stringify(cfg)); } catch (e) {} }
+
+let corHex = "#3ee6ff", corRGB = "62,230,255";
+function aplicar() {
+  const t = TEMAS[cfg.cor] || TEMAS.azul;
+  corHex = t[0]; corRGB = t[1];
+  const r = document.documentElement.style;
+  r.setProperty("--cor", corHex); r.setProperty("--cor-rgb", corRGB); r.setProperty("--fonte", cfg.fonte + "px");
+  document.querySelectorAll(".cor").forEach((b) => b.classList.toggle("sel", b.dataset.cor === cfg.cor));
+  $("cFalar").checked = !!cfg.falar; $("cBusca").checked = cfg.busca !== false;
+  $("cCidade").value = cfg.cidade || ""; $("cPlaylist").value = cfg.playlist || ""; $("cRotina").checked = cfg.rotina !== false;
+  $("cVel").value = cfg.vel; $("vVel").textContent = Number(cfg.vel).toFixed(2) + "x";
+  $("cTom").value = cfg.tom; $("vTom").textContent = Number(cfg.tom).toFixed(2);
+  $("cDens").value = String(cfg.dens); $("cFonte").value = String(cfg.fonte);
+  $("cProv").value = cfg.prov; $("cChave").value = cfg.chave; $("cModelo").value = cfg.modelo;
+  $("cNome").value = cfg.nome; $("cApelido").value = cfg.apelido; $("cSobre").value = cfg.sobre;
+  const nome = (cfg.nome || "Jarvis").trim() || "Jarvis";
+  $("nomeTxt").textContent = nome; document.title = nome; atualizarChips();
+}
+
+/* ---------- estado ---------- */
+let modo = null, rotuloPens = "", pensando = false, digitando = false, vozAtiva = false, ouvindo = false, fase = "ocioso";
+const ROTULO = { ocioso: "online", pensando: "pensando...", falando: "falando", ouvindo: "ouvindo..." };
+function recalcular() {
+  fase = ouvindo ? "ouvindo" : pensando ? "pensando" : (digitando || vozAtiva) ? "falando" : "ocioso";
+  $("estado").textContent = (fase === "pensando" && rotuloPens) ? rotuloPens : ROTULO[fase];
+}
+
+/* ---------- cerebro (chamada direta, sem servidor) ---------- */
+const ENDERECOS = {
+  groq: "https://api.groq.com/openai/v1/chat/completions",
+  openrouter: "https://openrouter.ai/api/v1/chat/completions",
+  claude: "https://api.anthropic.com/v1/messages",
+};
+const MODELOS = {
+  groq: ["openai/gpt-oss-20b", "openai/gpt-oss-120b", "llama-3.1-8b-instant", "llama-3.3-70b-versatile"],
+  openrouter: ["openrouter/free"],
+  claude: ["claude-sonnet-5-5"],
+};
+const BUSCA_GROQ = ["groq/compound-mini", "groq/compound"];   // modelos do Groq que pesquisam na internet sozinhos
+const GATILHO_BUSCA = /\b(hoje|agora|ontem|amanha|atual|atuais|atualmente|ultim[oa]s?|recente|recentes|noticias?|manchetes?|clima|tempo em|previsao|chuva|temperatura|cotacao|dolar|euro|bitcoin|preco|valor d[oae]|placar|resultado|jogo d[oae]|campeonato|tabela|quem ganhou|quem venceu|lancamento|lancou|estreia|presidente|eleicao|202[5-9])\b/i;
+function precisaBusca(txt) { return GATILHO_BUSCA.test((txt || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")); }
+const conversa = [];          // memoria da conversa (so enquanto o app esta aberto)
+const LIMITE_CONVERSA = 24;   // ultimas mensagens guardadas e enviadas ao cerebro
+const LIMITE_HIST = 40;       // maximo de itens na lista do Historico
+let modeloOk = null;
+
+function personalidade(md, imagem, extra) {
+  const nome = (cfg.nome || "Jarvis").trim() || "Jarvis";
+  let s = "Voce e o " + nome + ", assistente pessoal e parceiro do seu criador, inspirado no Jarvis do Homem de Ferro. " +
+    "Fale sempre em portugues do Brasil, com tom informal, proximo e confiante, com um toque leve de ironia inteligente. " +
+    "Respostas curtas e diretas, no maximo 3 frases, a nao ser que peçam mais detalhes. " +
+    "Va direto ao ponto, sem enrolacao nem formalidade. " +
+    "Se nao souber algo, diga com honestidade em vez de inventar. " +
+    "Se o criador estiver prestes a fazer algo arriscado ou errado, avise com educacao.";
+  if (cfg.apelido && cfg.apelido.trim()) s += " Chame o criador de '" + cfg.apelido.trim() + "'.";
+  if (cfg.sobre && cfg.sobre.trim()) s += " O que voce sabe sobre o criador: " + cfg.sobre.trim();
+  if (cfg.busca !== false && (cfg.prov === "groq" || cfg.prov === "claude")) s += " Voce tem busca na internet. Para fatos atuais (noticias, clima, precos, placares, quem ocupa um cargo), pesquise antes de responder e diga de onde veio a informacao em poucas palavras.";
+  const agora = new Date().toLocaleString("pt-BR", { dateStyle: "full", timeStyle: "short" });
+  s += " Data e hora de agora (horario do aparelho): " + agora + ". Use isso em qualquer pergunta sobre data ou hora. " +
+    "Seu conhecimento tem data de corte: em noticias, placares, precos e outros fatos recentes, avise que pode estar desatualizado em vez de afirmar com certeza.";
+  if (md === "reflexao") s += " MODO REFLEXAO: pense com calma antes de responder. Considere alternativas, confira o raciocinio e so entao responda, mostrando o raciocinio de forma resumida. Neste modo ignore o limite de 3 frases.";
+  if (md === "pesquisa") s += " MODO PESQUISA PROFUNDA: faca varias buscas, compare fontes e entregue um relatorio organizado: um resumo de 2 frases, depois topicos curtos com os achados principais e, no fim, a linha 'Fontes:' com os nomes dos sites. Se algo nao foi confirmado, diga. Neste modo ignore o limite de 3 frases.";
+  if (md === "analise") s += " MODO ANALISE DE PROGRAMAS E SISTEMAS: voce e um engenheiro de software senior. Analise o codigo ou sistema recebido e responda nesta ordem: 1) O que faz; 2) Problemas encontrados (bugs, seguranca, desempenho), do mais grave ao menos grave, citando trechos ou linhas; 3) Melhorias sugeridas; 4) Proximo passo. Seja direto e, se faltar contexto, diga o que falta. Neste modo ignore o limite de 3 frases.";
+  if (imagem) s += " O criador enviou uma imagem. Descreva o que voce ve e responda ao pedido dele sobre ela. Se houver texto na imagem, leia.";
+  if (extra) s += " Dados reais obtidos agora por plugins (use na resposta e nao invente alem disso):" + extra;
+  return s;
+}
+
+async function chamar(prov, chave, modelo, mensagens, sistema, o) {
+  o = o || {};
+  const ctl = new AbortController();
+  const tempo = setTimeout(() => ctl.abort(), o.lento ? 120000 : 60000);
+  try {
+    let resp;
+    if (prov === "claude") {
+      const corpo = { model: modelo, max_tokens: o.maxTok || 1000, system: sistema, messages: mensagens };
+      if (o.busca) corpo.tools = [{ type: "web_search_20250305", name: "web_search", max_uses: o.usos || 3, user_location: { type: "approximate", country: "BR", timezone: "America/Sao_Paulo" } }];
+      resp = await fetch(ENDERECOS.claude, {
+        method: "POST", signal: ctl.signal,
+        headers: { "Content-Type": "application/json", "x-api-key": chave, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+        body: JSON.stringify(corpo),
+      });
+    } else {
+      const corpo = { model: modelo, messages: [{ role: "system", content: sistema }].concat(mensagens) };
+      if (o.raciocinio && /gpt-oss/.test(modelo)) corpo.reasoning_effort = "high";
+      resp = await fetch(ENDERECOS[prov], {
+        method: "POST", signal: ctl.signal,
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + chave },
+        body: JSON.stringify(corpo),
+      });
+    }
+    let dados = null;
+    try { dados = await resp.json(); } catch (e) {}
+    if (!resp.ok) {
+      const det = dados && dados.error ? (dados.error.message || dados.error.type || "") : "";
+      const e = new Error("HTTP " + resp.status + (det ? ": " + det : ""));
+      e.status = resp.status; e.detalhe = det; throw e;
+    }
+    const texto = prov === "claude"
+      ? ((dados.content || []).map((b) => b.text || "").join(""))
+      : (dados.choices && dados.choices[0] && dados.choices[0].message ? dados.choices[0].message.content : "");
+    return (texto || "").trim() || "(sem resposta)";
+  } finally { clearTimeout(tempo); }
+}
+
+function traduzirErro(e, prov) {
+  if (e && e.name === "AbortError") return "A resposta demorou demais. Tente de novo.";
+  if (e instanceof TypeError) {
+    return "Nao consegui conectar. Pode ser falta de internet ou o servico bloqueando chamadas diretas do navegador (CORS)." +
+      (prov === "groq" ? " Se for o Groq, troque o cerebro em Configuracoes (por exemplo, OpenRouter)." : "");
+  }
+  const st = e && e.status;
+  if (st === 401 || st === 403) return "A chave foi recusada (" + st + "). Confira se colou a chave certa, sem espacos, em Configuracoes.";
+  if (st === 429) return "Limite de uso atingido por agora (429). Espere um pouco e tente de novo.";
+  if (st === 402) return "Sem credito nesse servico (402).";
+  return "Erro do servico: " + ((e && e.message) || "desconhecido");
+}
+
+const MODELOS_VISAO = {
+  groq: ["meta-llama/llama-4-scout-17b-16e-instruct", "meta-llama/llama-4-maverick-17b-128e-instruct"],
+  openrouter: ["openrouter/free"],
+  claude: ["claude-sonnet-5-5"],
+};
+const MAX_TEXTO = 24000;   // limite de texto/codigo por mensagem (planos gratis tem limite por minuto)
+
+function limpar(t) { return (t || "").replace(/\*\*(.+?)\*\*/g, "$1").replace(/^#{1,6}\s*/gm, "").trim(); }
+function aparar() {
+  while (conversa.length > LIMITE_CONVERSA) conversa.shift();
+  while (conversa.length && conversa[0].role !== "user") conversa.shift();
+}
+function montarConteudo(prov, texto, anexo) {
+  if (anexo && anexo.tipo === "imagem") {
+    const pedido = texto || "Descreva e explique esta imagem.";
+    if (prov === "claude") return [{ type: "image", source: { type: "base64", media_type: anexo.mime, data: anexo.b64 } }, { type: "text", text: pedido }];
+    return [{ type: "text", text: pedido }, { type: "image_url", image_url: { url: "data:" + anexo.mime + ";base64," + anexo.b64 } }];
+  }
+  if (anexo && anexo.tipo === "texto") {
+    return "Arquivo: " + anexo.nome + (anexo.cortado ? " (cortado, o arquivo era maior)" : "") + "\n\n" + anexo.conteudo + "\n\n" + (texto || "Analise este arquivo.");
+  }
+  return texto;
+}
+
+async function perguntar(texto, anexo, md) {
+  const chave = (cfg.chave || "").trim();
+  if (!chave) { abrir("config"); throw new Error("Cole sua chave da API em Configuracoes para eu poder pensar."); }
+  const prov = cfg.prov;
+  if (anexo && anexo.tipo === "texto" && !md) md = "analise";
+  if (!anexo && texto.length > MAX_TEXTO) texto = texto.slice(0, MAX_TEXTO) + "\n[... cortado]";
+
+  // plugins que respondem sozinhos (sem gastar o cerebro)
+  if (!anexo && !md) {
+    for (const pl of plugsAtivos()) {
+      if (!pl.executar) continue;
+      try {
+        const r = await pl.executar(texto, API);
+        if (r) {
+          const txt = typeof r === "string" ? r : (r.texto || "(ok)");
+          conversa.push({ role: "user", content: texto }, { role: "assistant", content: txt }); aparar();
+          return r;
+        }
+      } catch (e) {}
+    }
+  }
+  // plugins que entregam dados reais para o cerebro usar na resposta
+  let extra = "";
+  if (!anexo && md !== "analise") {
+    for (const pl of plugsAtivos()) {
+      if (!pl.contexto) continue;
+      if (pl.gatilho && !pl.gatilho.test(norm(texto))) continue;
+      try { const c = await pl.contexto(texto, API); if (c) extra += "\n" + c; }
+      catch (e) { extra += "\nAviso: o plugin " + (pl.nome || pl.id) + " falhou (" + ((e && e.message) || "erro") + ")."; }
+    }
+  }
+
+  const manual = (cfg.modelo || "").trim();
+  const imagem = !!(anexo && anexo.tipo === "imagem");
+  const quer = !imagem && md !== "analise" && md !== "reflexao" && cfg.busca !== false && (prov === "groq" || prov === "claude") && (md === "pesquisa" || precisaBusca(texto));
+  rotuloPens = imagem ? "olhando a imagem..." : md === "pesquisa" ? "pesquisando a fundo..." : md === "reflexao" ? "refletindo..." : md === "analise" ? "analisando..." : quer ? "pesquisando na web..." : "";
+  recalcular();
+  const o = {
+    busca: quer && prov === "claude", usos: md === "pesquisa" ? 8 : 3,
+    raciocinio: md === "reflexao" || md === "analise", lento: !!md || quer || imagem,
+    maxTok: prov === "claude" ? (md === "pesquisa" ? 3500 : md === "analise" ? 3000 : md === "reflexao" ? 2000 : quer ? 1500 : 1000) : 0,
+  };
+  const base = modeloOk ? [modeloOk] : MODELOS[prov].slice();
+  let lista;
+  if (manual) lista = [manual];
+  else if (imagem) lista = MODELOS_VISAO[prov].slice();
+  else if (prov === "groq" && quer) lista = (md === "pesquisa" ? ["groq/compound", "groq/compound-mini"] : BUSCA_GROQ.slice()).concat(base);
+  else if (prov === "groq" && (md === "reflexao" || md === "analise")) lista = ["openai/gpt-oss-120b"].concat(base);
+  else lista = base;
+
+  const conteudo = montarConteudo(prov, texto, anexo);
+  const msgUser = { role: "user", content: conteudo };
+  conversa.push(msgUser); aparar();
+  const msgs = conversa.slice();
+  const sistema = personalidade(md, imagem, extra);
+  let ultimo = null;
+  try {
+    for (let i = 0; i < lista.length; i++) {
+      const modelo = lista[i];
+      try {
+        const r = limpar(await chamar(prov, chave, modelo, msgs, sistema, o));
+        if (!manual && !md && !quer && !imagem) modeloOk = modelo;
+        if (imagem) msgUser.content = "[imagem enviada] " + (texto || "");
+        conversa.push({ role: "assistant", content: r });
+        return r;
+      } catch (e) {
+        ultimo = e;
+        const semModelo = e && (e.status === 404 || /model_not_found|does not exist|not found/i.test(e.detalhe || ""));
+        if (semModelo && modeloOk === modelo) modeloOk = null;
+        const proximo = i < lista.length - 1 && !manual && !(e && (e.status === 401 || e.status === 403 || e.name === "AbortError"));
+        if (proximo) continue;
+        break;
+      }
+    }
+  } finally { rotuloPens = ""; recalcular(); }
+  const idx = conversa.indexOf(msgUser); if (idx >= 0) conversa.splice(idx, 1);   // descarta a fala que falhou
+  throw new Error(traduzirErro(ultimo, prov));
+}
+
+async function testarConexao() {
+  const nota = $("notaConexao"); const chave = (cfg.chave || "").trim();
+  if (!chave) { nota.textContent = "Cole a chave primeiro."; return; }
+  nota.textContent = "Testando...";
+  const manual = (cfg.modelo || "").trim();
+  const lista = manual ? [manual] : MODELOS[cfg.prov];
+  let ultimo = null;
+  for (const modelo of lista) {
+    try {
+      await chamar(cfg.prov, chave, modelo, [{ role: "user", content: "Responda apenas: ok" }], "Responda em uma palavra.");
+      if (!manual) modeloOk = modelo;
+      nota.textContent = "Conectado! Modelo: " + modelo; return;
+    } catch (e) {
+      ultimo = e;
+      const semModelo = e && (e.status === 404 || /model_not_found|does not exist|not found/i.test(e.detalhe || ""));
+      if (semModelo && !manual) continue;
+      break;
+    }
+  }
+  nota.textContent = traduzirErro(ultimo, cfg.prov);
+}
+
+/* ---------- conversa ---------- */
+const hist = [];
+function guardarHist(item) { hist.push(item); while (hist.length > LIMITE_HIST) hist.shift(); }
+let timer = null;
+
+function digitar(texto) {
+  clearInterval(timer);
+  const alvo = $("resposta");
+  alvo.textContent = ""; digitando = true; recalcular();
+  let i = 0;
+  timer = setInterval(() => {
+    i += Math.max(2, Math.ceil(texto.length / 160)); alvo.textContent = texto.slice(0, i); alvo.scrollTop = alvo.scrollHeight;
+    if (i >= texto.length) { clearInterval(timer); digitando = false; recalcular(); }
+  }, 22);
+  $("holo").onclick = () => { clearInterval(timer); alvo.textContent = texto; digitando = false; recalcular(); };
+}
+
+function mostrar(texto, comHistorico) {
+  $("holo").classList.remove("erro"); $("holo").hidden = false; $("acoesHolo").innerHTML = "";
+  if (comHistorico) guardarHist({ quem: "jarvis", t: texto });
+  digitar(texto);
+}
+function mostrarErro(msg) {
+  clearInterval(timer); digitando = false;
+  $("holo").classList.add("erro"); $("holo").hidden = false; $("acoesHolo").innerHTML = ""; $("resposta").textContent = msg; $("holo").onclick = null;
+}
+
+function mostrarBotoes(lista) {
+  const a = $("acoesHolo"); a.innerHTML = "";
+  (lista || []).forEach((b) => {
+    const e = document.createElement("button"); e.type = "button"; e.className = "mini"; e.textContent = b.rotulo;
+    e.addEventListener("click", (ev) => { ev.stopPropagation(); b.aoClicar(); });
+    a.appendChild(e);
+  });
+  $("holo").hidden = false;
+}
+function resumoFala(txt) {
+  if (txt.length <= 380) return txt;
+  const c = txt.slice(0, 380), p = Math.max(c.lastIndexOf(". "), c.lastIndexOf("\n"));
+  return p > 120 ? c.slice(0, p + 1) : c;
+}
+
+let pendente = null;   // imagem ou arquivo esperando o envio
+function atualizarAnexoUI() {
+  $("anexo").classList.toggle("on", !!pendente);
+  if (pendente) $("eu").textContent = "[anexo] " + pendente.nome + " (escreva o pedido e envie, ou toque no clipe pra remover)";
+  else if ($("eu").textContent.indexOf("[anexo]") === 0) $("eu").textContent = "";
+}
+function disparar(t) { const a = pendente; pendente = null; atualizarAnexoUI(); enviar(t, a); }
+
+async function enviar(texto, anexo) {
+  texto = (texto || "").trim();
+  if ((!texto && !anexo) || pensando) return;
+  const md = modo; modo = null; atualizarChips();
+  const rotulo = (anexo ? (anexo.tipo === "imagem" ? "[imagem] " : "[arquivo " + anexo.nome + "] ") : "") + texto;
+  guardarHist({ quem: "voce", t: rotulo });
+  $("eu").textContent = rotulo;
+  pararVoz(); clearInterval(timer); digitando = false; $("holo").hidden = true;
+  pensando = true; recalcular(); $("enviar").disabled = true;
+  try {
+    const r = await perguntar(texto, anexo, md);
+    const txt = typeof r === "string" ? r : r.texto;
+    if (txt) { mostrar(txt, true); falar(resumoFala(txt), false); }
+    if (r && r.botoes) mostrarBotoes(r.botoes);
+  } catch (e) {
+    mostrarErro(e && e.message ? e.message : "Algo deu errado. Tente de novo.");
+  } finally {
+    pensando = false; rotuloPens = ""; $("enviar").disabled = false; recalcular();
+  }
+}
+
+$("barra").addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  const t = $("texto").value; $("texto").value = ""; $("texto").style.height = "auto";
+  disparar(t);
+});
+$("texto").addEventListener("input", () => {
+  const c = $("texto"); c.style.height = "auto"; c.style.height = Math.min(c.scrollHeight, 110) + "px";
+});
+$("texto").addEventListener("keydown", (ev) => {
+  if (ev.key === "Enter" && !ev.shiftKey) { ev.preventDefault(); $("barra").requestSubmit(); }
+});
+
+/* ---------- voz (saida) ---------- */
+const temVoz = "speechSynthesis" in window;
+let vozes = [], idVoz = 0;
+function carregarVozes() {
+  if (!temVoz) return;
+  vozes = speechSynthesis.getVoices() || [];
+  const sel = $("cVoz"); sel.innerHTML = "";
+  const auto = document.createElement("option"); auto.value = ""; auto.textContent = "Automatica (portugues)"; sel.appendChild(auto);
+  const pt = vozes.filter((v) => (v.lang || "").toLowerCase().startsWith("pt"));
+  (pt.length ? pt : vozes).forEach((v) => {
+    const o = document.createElement("option"); o.value = v.name; o.textContent = v.name + " (" + v.lang + ")"; sel.appendChild(o);
+  });
+  sel.value = cfg.vozNome || "";
+  if (sel.value !== (cfg.vozNome || "")) sel.value = "";
+  $("notaVoz").textContent = pt.length ? "" : "Nenhuma voz em portugues encontrada neste aparelho. Instale vozes em Ajustes do Android > Saida de texto para fala.";
+}
+function pararVoz() { idVoz++; try { if (temVoz) speechSynthesis.cancel(); } catch (e) {} vozAtiva = false; recalcular(); }
+function falar(texto, forcar) {
+  if (!temVoz || !(cfg.falar || forcar)) return;
+  try { speechSynthesis.cancel(); } catch (e) {}
+  const meu = ++idVoz;
+  const u = new SpeechSynthesisUtterance(texto);
+  u.lang = "pt-BR"; u.rate = Number(cfg.vel); u.pitch = Number(cfg.tom);
+  const v = vozes.find((x) => x.name === cfg.vozNome);
+  if (v) { u.voice = v; u.lang = v.lang; }
+  let seguro = null;
+  const fim = () => { clearTimeout(seguro); if (meu !== idVoz) return; vozAtiva = false; recalcular(); };
+  seguro = setTimeout(fim, texto.length * 110 + 3000);   // garantia caso o navegador nao avise o fim
+  u.onstart = () => { if (meu === idVoz) { vozAtiva = true; recalcular(); } };
+  u.onend = fim; u.onerror = fim;
+  speechSynthesis.speak(u);
+}
+
+/* ---------- microfone (entrada) ---------- */
+const Reconhecimento = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (!Reconhecimento) { $("mic").hidden = true; }
+else {
+  const rec = new Reconhecimento();
+  rec.lang = "pt-BR"; rec.interimResults = true; rec.continuous = false; rec.maxAlternatives = 1;
+  let final = "", erroMic = false;
+  rec.onstart = () => { ouvindo = true; erroMic = false; final = ""; $("mic").classList.add("ouvindo"); recalcular(); };
+  rec.onend = () => {
+    ouvindo = false; $("mic").classList.remove("ouvindo"); recalcular();
+    const t = final.trim(); final = "";
+    if (t || pendente) disparar(t);
+    else if (!erroMic) { $("eu").textContent = ""; mostrarErro("Nao ouvi nada. Toque no microfone e fale de novo."); }
+  };
+  rec.onresult = (ev) => {
+    let parcial = "";
+    for (let i = ev.resultIndex; i < ev.results.length; i++) {
+      const r = ev.results[i];
+      if (r.isFinal) final += r[0].transcript + " "; else parcial += r[0].transcript;
+    }
+    $("eu").textContent = (final + parcial).trim();
+  };
+  rec.onerror = (ev) => {
+    erroMic = true;
+    const e = ev && ev.error;
+    if (e === "aborted") return;
+    if (e === "no-speech") { mostrarErro("Nao ouvi nada. Toque no microfone e fale de novo."); return; }
+    if (e === "not-allowed" || e === "service-not-allowed") { mostrarErro("O microfone esta bloqueado. Libere a permissao do microfone para este app nas configuracoes do Chrome."); return; }
+    if (e === "audio-capture") { mostrarErro("Nao encontrei um microfone funcionando neste aparelho."); return; }
+    if (e === "network") { mostrarErro("O reconhecimento de voz precisa de internet e nao conseguiu conectar."); return; }
+    mostrarErro("Nao consegui ouvir (" + (e || "erro desconhecido") + "). Tente de novo.");
+  };
+  $("mic").addEventListener("click", () => { if (ouvindo) rec.stop(); else { pararVoz(); $("eu").textContent = ""; try { rec.start(); } catch (e) {} } });
+}
+
+/* ---------- folhas: historico e configuracoes ---------- */
+function fecharTudo() { document.querySelectorAll(".folha").forEach((e) => e.classList.remove("aberta")); $("veu").classList.remove("aberta"); }
+function abrir(id) { fecharTudo(); $(id).classList.add("aberta"); $("veu").classList.add("aberta"); }
+$("bHist").addEventListener("click", () => {
+  const l = $("lista"); l.innerHTML = "";
+  if (!hist.length) { const p = document.createElement("p"); p.className = "nota"; p.textContent = "Nada por aqui ainda."; l.appendChild(p); }
+  hist.forEach((h) => {
+    const d = document.createElement("div"); d.className = "entrada " + h.quem;
+    const q = document.createElement("span"); q.className = "quem"; q.textContent = h.quem === "voce" ? "VOCE" : (cfg.nome || "Jarvis").toUpperCase();
+    d.appendChild(q); d.appendChild(document.createTextNode(h.t)); l.appendChild(d);
+  });
+  abrir("gaveta");
+});
+$("bLimpar").addEventListener("click", () => { hist.length = 0; conversa.length = 0; $("bHist").click(); });
+$("bConfig").addEventListener("click", () => abrir("config"));
+$("veu").addEventListener("click", fecharTudo);
+document.querySelectorAll("[data-fechar]").forEach((b) => b.addEventListener("click", fecharTudo));
+
+Object.keys(TEMAS).forEach((nome) => {
+  const b = document.createElement("button"); b.type = "button"; b.className = "cor"; b.dataset.cor = nome;
+  b.style.background = TEMAS[nome][0]; b.style.color = TEMAS[nome][0]; b.setAttribute("aria-label", "Cor " + nome);
+  b.addEventListener("click", () => { cfg.cor = nome; salvar(); aplicar(); });
+  $("cores").appendChild(b);
+});
+$("cProv").addEventListener("change", (e) => { cfg.prov = e.target.value; modeloOk = null; salvar(); $("notaConexao").textContent = ""; });
+$("cChave").addEventListener("input", (e) => { cfg.chave = e.target.value.trim(); salvar(); });
+$("cModelo").addEventListener("input", (e) => { cfg.modelo = e.target.value.trim(); modeloOk = null; salvar(); });
+$("cNome").addEventListener("input", (e) => { cfg.nome = e.target.value; salvar(); aplicarNome(); });
+$("cApelido").addEventListener("input", (e) => { cfg.apelido = e.target.value; salvar(); });
+$("cSobre").addEventListener("input", (e) => { cfg.sobre = e.target.value; salvar(); });
+$("bConexao").addEventListener("click", testarConexao);
+function aplicarNome() { const n = (cfg.nome || "Jarvis").trim() || "Jarvis"; $("nomeTxt").textContent = n; document.title = n; atualizarChips(); }
+$("cBusca").addEventListener("change", (e) => { cfg.busca = e.target.checked; salvar(); });
+$("cFalar").addEventListener("change", (e) => { cfg.falar = e.target.checked; salvar(); if (!cfg.falar) pararVoz(); });
+$("cVoz").addEventListener("change", (e) => { cfg.vozNome = e.target.value; salvar(); });
+$("cVel").addEventListener("input", (e) => { cfg.vel = Number(e.target.value); $("vVel").textContent = cfg.vel.toFixed(2) + "x"; salvar(); });
+$("cTom").addEventListener("input", (e) => { cfg.tom = Number(e.target.value); $("vTom").textContent = cfg.tom.toFixed(2); salvar(); });
+$("cDens").addEventListener("change", (e) => { cfg.dens = Number(e.target.value); salvar(); criarParticulas(cfg.dens); });
+$("cFonte").addEventListener("change", (e) => { cfg.fonte = Number(e.target.value); salvar(); aplicar(); });
+$("bTestar").addEventListener("click", () => falar("Sistemas online. Todas as funcoes operacionais.", true));
+$("bPadrao").addEventListener("click", () => { const k = cfg.chave, p = cfg.prov; cfg = Object.assign({}, PADRAO, { chave: k, prov: p }); cfg.plugins = {}; salvar(); aplicar(); carregarVozes(); criarParticulas(cfg.dens); });
+if (!temVoz) { $("blocoVoz").hidden = true; $("semVoz").hidden = false; }
+
+/* ---------- modos (reflexao, pesquisa, analise) ---------- */
+const DICA = { reflexao: "Pergunte algo pra eu pensar com calma...", pesquisa: "O que eu pesquiso a fundo?", analise: "Cole o codigo ou descreva o sistema..." };
+function atualizarChips() {
+  document.querySelectorAll("[data-modo]").forEach((b) => b.classList.toggle("on", b.dataset.modo === modo));
+  const n = (cfg.nome || "Jarvis").trim() || "Jarvis";
+  $("texto").placeholder = modo ? DICA[modo] : "Fale com o " + n + "...";
+}
+document.querySelectorAll("[data-modo]").forEach((b) => b.addEventListener("click", () => { modo = modo === b.dataset.modo ? null : b.dataset.modo; atualizarChips(); }));
+
+/* ---------- anexos (imagem e arquivo) ---------- */
+function lerImagem(f) {
+  return new Promise((ok, falha) => {
+    const url = URL.createObjectURL(f), img = new Image();
+    img.onload = () => {
+      const m = 1024, e = Math.min(1, m / Math.max(img.width, img.height));
+      const c = document.createElement("canvas"); c.width = Math.round(img.width * e); c.height = Math.round(img.height * e);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+      ok({ tipo: "imagem", mime: "image/jpeg", b64: c.toDataURL("image/jpeg", 0.82).split(",")[1], nome: f.name || "imagem" });
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); falha(new Error("Nao consegui abrir essa imagem. Tente outra (JPG ou PNG).")); };
+    img.src = url;
+  });
+}
+async function lerAnexo(f) {
+  if ((f.type || "").indexOf("image/") === 0) return lerImagem(f);
+  if (f.size > 600000) throw new Error("Arquivo grande demais (maximo uns 600 KB). Mande so a parte que importa.");
+  let txt = await f.text();
+  if (txt.indexOf("\u0000") >= 0) throw new Error("Esse arquivo nao e de texto. Mande codigo, texto ou imagem.");
+  const cortado = txt.length > MAX_TEXTO; if (cortado) txt = txt.slice(0, MAX_TEXTO);
+  return { tipo: "texto", nome: f.name, conteudo: txt, cortado: cortado };
+}
+$("anexo").addEventListener("click", () => { if (pendente) { pendente = null; atualizarAnexoUI(); return; } $("arq").click(); });
+$("arq").addEventListener("change", async (e) => {
+  const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
+  try { pendente = await lerAnexo(f); atualizarAnexoUI(); $("texto").focus(); }
+  catch (err) { mostrarErro(err && err.message ? err.message : "Nao consegui abrir o arquivo."); }
+});
+
+/* ---------- plugins ---------- */
+const PLUGINS = [];
+const norm = (t) => (t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+async function jget(url, ms) {
+  const ctl = new AbortController(), tp = setTimeout(() => ctl.abort(), ms || 10000);
+  try { const r = await fetch(url, { signal: ctl.signal }); if (!r.ok) throw new Error("HTTP " + r.status); return await r.json(); }
+  finally { clearTimeout(tp); }
+}
+function guardarP(k, v) { try { localStorage.setItem("jarvis_p_" + k, JSON.stringify(v)); } catch (e) {} }
+function lerP(k, pad) { try { const x = localStorage.getItem("jarvis_p_" + k); return x === null ? pad : JSON.parse(x); } catch (e) { return pad; } }
+function embed(url) {
+  const a = $("acoesHolo"), velho = a.querySelector("iframe"); if (velho) velho.remove();
+  const f = document.createElement("iframe"); f.src = url; f.allow = "autoplay; encrypted-media; clipboard-write"; f.loading = "lazy";
+  a.appendChild(f); $("holo").hidden = false;
+}
+async function perguntarSimples(sistema, texto) {
+  const chave = (cfg.chave || "").trim(); if (!chave) throw new Error("sem chave da API");
+  const manual = (cfg.modelo || "").trim();
+  const lista = manual ? [manual] : (modeloOk ? [modeloOk] : MODELOS[cfg.prov]);
+  let ult = null;
+  for (const m of lista) {
+    try { return await chamar(cfg.prov, chave, m, [{ role: "user", content: texto }], sistema); }
+    catch (e) { ult = e; if (!(e && (e.status === 404 || e.status === 400))) break; }
+  }
+  throw ult || new Error("falhou");
+}
+function plugAtivo(p) { return cfg.plugins[p.id] !== false; }
+function plugsAtivos() { return PLUGINS.filter(plugAtivo); }
+function registrar(p) {
+  if (!p || !p.id || PLUGINS.some((x) => x.id === p.id)) return;
+  PLUGINS.push(p); montarPlugs();
+}
+function montarPlugs() {
+  const alvo = $("plugs"); if (!alvo) return; alvo.innerHTML = "";
+  PLUGINS.forEach((p) => {
+    const l = document.createElement("label"); l.className = "plug";
+    const sp = document.createElement("span"), b = document.createElement("b"), sm = document.createElement("small");
+    b.textContent = p.nome || p.id; sm.textContent = p.descricao || ""; sp.appendChild(b); sp.appendChild(sm);
+    const ck = document.createElement("input"); ck.type = "checkbox"; ck.checked = plugAtivo(p);
+    ck.addEventListener("change", () => { cfg.plugins[p.id] = ck.checked; salvar(); });
+    l.appendChild(sp); l.appendChild(ck); alvo.appendChild(l);
+  });
+}
+const API = { cfg: () => cfg, norm, registrar, falar, mostrar, mostrarBotoes, embed, jget, perguntarSimples, guardar: guardarP, ler: lerP };
+window.Jarvis = API;
+
+/* ---- plugin: clima (Open-Meteo, sem chave) ---- */
+const WMO = { 0: "ceu limpo", 1: "quase limpo", 2: "parcialmente nublado", 3: "nublado", 45: "neblina", 48: "neblina", 51: "garoa fraca", 53: "garoa", 55: "garoa forte", 61: "chuva fraca", 63: "chuva", 65: "chuva forte", 71: "neve fraca", 73: "neve", 75: "neve forte", 80: "pancadas de chuva fracas", 81: "pancadas de chuva", 82: "pancadas de chuva fortes", 95: "trovoadas", 96: "trovoadas com granizo", 99: "trovoadas com granizo forte" };
+const SEM_LOCAL = "Defina sua cidade em Configuracoes para eu dar o clima.";
+function pegarLocal() {
+  return new Promise((ok, falha) => {
+    if (!navigator.geolocation) return falha(new Error(SEM_LOCAL));
+    navigator.geolocation.getCurrentPosition((p) => {
+      cfg.lat = p.coords.latitude; cfg.lon = p.coords.longitude; cfg.cidade = ""; salvar();
+      ok({ lat: cfg.lat, lon: cfg.lon, nome: "sua regiao" });
+    }, () => falha(new Error(SEM_LOCAL)), { timeout: 8000, maximumAge: 600000 });
+  });
+}
+async function localizar() {
+  if (cfg.lat != null && cfg.lon != null) return { lat: cfg.lat, lon: cfg.lon, nome: cfg.cidade || "sua regiao" };
+  if ((cfg.cidade || "").trim()) {
+    const r = await jget("https://geocoding-api.open-meteo.com/v1/search?name=" + encodeURIComponent(cfg.cidade.trim()) + "&count=1&language=pt");
+    const g = r.results && r.results[0];
+    if (!g) throw new Error("nao achei a cidade " + cfg.cidade);
+    cfg.lat = g.latitude; cfg.lon = g.longitude; cfg.cidade = g.name; salvar();
+    return { lat: g.latitude, lon: g.longitude, nome: g.name };
+  }
+  return pegarLocal();
+}
+async function dadosClima(curto) {
+  const l = await localizar();
+  const d = await jget("https://api.open-meteo.com/v1/forecast?latitude=" + l.lat + "&longitude=" + l.lon +
+    "&current=temperature_2m,apparent_temperature,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=3");
+  const c = d.current, dd = d.daily, dias = ["hoje", "amanha", "depois de amanha"];
+  let tx = "Clima em " + l.nome + ": agora " + Math.round(c.temperature_2m) + " graus (sensacao de " + Math.round(c.apparent_temperature) + "), " + (WMO[c.weather_code] || "tempo variavel") + ".";
+  for (let i = 0; i < (curto ? 1 : 3); i++) {
+    tx += " " + cap(dias[i]) + ": minima " + Math.round(dd.temperature_2m_min[i]) + ", maxima " + Math.round(dd.temperature_2m_max[i]) + ", " + (WMO[dd.weather_code[i]] || "variavel") + ", chance de chuva " + (dd.precipitation_probability_max[i] == null ? 0 : dd.precipitation_probability_max[i]) + "%.";
+  }
+  return tx;
+}
+registrar({
+  id: "clima", nome: "Clima", descricao: "Previsao do tempo real, sem precisar de chave",
+  gatilho: /\b(clima|previsao|vai chover|chuva|chover|temperatura|guarda-chuva|tempo (hoje|amanha|agora|em|la|esta|ta|fara))\b/,
+  contexto: () => dadosClima(false),
+  aoIniciar: () => dadosClima(true),
+});
+
+/* ---- plugin: noticias (feeds do g1 via rss2json) ---- */
+const FEEDS = { brasil: "https://g1.globo.com/rss/g1/", mundo: "https://g1.globo.com/rss/g1/mundo/" };
+async function manchetes(qual, n) {
+  const d = await jget("https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(FEEDS[qual]));
+  if (d.status !== "ok" || !d.items || !d.items.length) throw new Error("feed indisponivel");
+  return d.items.slice(0, n).map((i) => String(i.title || "").trim());
+}
+registrar({
+  id: "noticias", nome: "Noticias", descricao: "Manchetes atuais do Brasil e do mundo (g1)",
+  gatilho: /\b(noticia|noticias|manchete|manchetes|jornal|o que (esta|ta) acontecendo|acontecendo no mundo)\b/,
+  contexto: async () => {
+    const [br, mu] = await Promise.all([manchetes("brasil", 5), manchetes("mundo", 5)]);
+    return "Manchetes do Brasil (g1): " + br.join(" | ") + ". Manchetes do mundo (g1): " + mu.join(" | ") + ".";
+  },
+  aoIniciar: async () => "Noticias do mundo: " + (await manchetes("mundo", 4)).join("; ") + ".",
+});
+
+/* ---- plugin: agenda (guardada no aparelho) ---- */
+function lerAgenda() { try { return JSON.parse(localStorage.getItem("jarvis_agenda") || "[]"); } catch (e) { return []; } }
+function gravarAgenda(l) { try { localStorage.setItem("jarvis_agenda", JSON.stringify(l)); } catch (e) {} }
+function iso(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+const cmpEv = (x, y) => (x.data + (x.hora || "")).localeCompare(y.data + (y.hora || ""));
+function fmtEv(e) {
+  const pa = e.data.split("-").map(Number), dt = new Date(pa[0], pa[1] - 1, pa[2]);
+  const dia = e.data === iso(new Date()) ? "hoje" : e.data === iso(new Date(Date.now() + 86400000)) ? "amanha" : dt.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "numeric" });
+  return dia + (e.hora ? " as " + e.hora : "") + ": " + e.t;
+}
+function semanaAgenda() {
+  const h = new Date(); h.setHours(0, 0, 0, 0); const f = new Date(h); f.setDate(f.getDate() + 7);
+  return lerAgenda().filter((e) => e.data >= iso(h) && e.data < iso(f)).sort(cmpEv);
+}
+function novoEv(t, data, hora) { const l = lerAgenda(); const e = { id: Date.now() + "" + Math.floor(Math.random() * 1000), t: t, data: data, hora: hora || "" }; l.push(e); gravarAgenda(l); return e; }
+function renderAgenda() {
+  const l = $("aLista"); l.innerHTML = "";
+  const itens = lerAgenda().filter((e) => e.data >= iso(new Date())).sort(cmpEv);
+  if (!itens.length) { const p = document.createElement("p"); p.className = "nota"; p.textContent = "Nenhum compromisso por enquanto."; l.appendChild(p); }
+  itens.forEach((e) => {
+    const d = document.createElement("div"); d.className = "ev";
+    const sp = document.createElement("span"); sp.textContent = fmtEv(e);
+    const x = document.createElement("button"); x.type = "button"; x.textContent = "×"; x.setAttribute("aria-label", "Apagar");
+    x.addEventListener("click", () => { gravarAgenda(lerAgenda().filter((y) => y.id !== e.id)); renderAgenda(); });
+    d.appendChild(sp); d.appendChild(x); l.appendChild(d);
+  });
+}
+gravarAgenda(lerAgenda().filter((e) => e.data >= iso(new Date(Date.now() - 30 * 86400000))));
+$("bAgenda").addEventListener("click", () => { renderAgenda(); abrir("agenda"); });
+$("bAdd").addEventListener("click", () => {
+  const t = $("aTitulo").value.trim(), d = $("aData").value;
+  if (!t || !d) { $("aTitulo").focus(); return; }
+  novoEv(t, d, $("aHora").value); $("aTitulo").value = ""; $("aHora").value = ""; renderAgenda();
+});
+registrar({
+  id: "agenda", nome: "Agenda", descricao: "Compromissos da semana (guardados so neste aparelho)",
+  gatilho: /\b(agenda|compromisso|compromissos|semana|marcado|marquei|reuniao|tenho (algo|que)|lembrete)\b/,
+  executar: async (texto) => {
+    const n = norm(texto);
+    if (!(/\b(agende|agendar|marque|marcar|anote|anota|adicione|adicionar|coloque|colocar|crie|criar)\b.*\b(agenda|compromisso|reuniao|consulta|lembrete|evento)\b/.test(n) || /^(agende|marque|anote|marca|anota)\b/.test(n))) return null;
+    const hoje = new Date();
+    const sis = "Extraia o compromisso do pedido e responda SOMENTE com JSON, sem mais nada: {\"titulo\":\"...\",\"data\":\"AAAA-MM-DD\",\"hora\":\"HH:MM ou vazio\"}. Hoje e " +
+      hoje.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) + " (" + iso(hoje) + "). Resolva datas relativas (amanha, sexta, dia 15) para a proxima ocorrencia futura. Se nao der para saber a data, use \"data\":\"\".";
+    const bruto = await perguntarSimples(sis, texto);
+    const m = bruto.match(/\{[\s\S]*\}/); let j = null;
+    try { j = m ? JSON.parse(m[0]) : null; } catch (e) {}
+    if (!j || !j.titulo || !/^\d{4}-\d{2}-\d{2}$/.test(j.data || "")) return "Nao peguei a data direito. Fala de novo, tipo: agende dentista sexta as 15h. Ou adiciona pelo botao da agenda.";
+    const ev = novoEv(String(j.titulo).slice(0, 80), j.data, /^\d{2}:\d{2}$/.test(j.hora || "") ? j.hora : "");
+    renderAgenda();
+    return "Anotado: " + fmtEv(ev) + ".";
+  },
+  contexto: async () => {
+    const l = semanaAgenda();
+    return "Agenda dos proximos 7 dias: " + (l.length ? l.map(fmtEv).join(" | ") : "nenhum compromisso") + ".";
+  },
+  aoIniciar: async () => {
+    const l = semanaAgenda();
+    return l.length ? "Agenda da semana: " + l.slice(0, 6).map(fmtEv).join("; ") + "." : "Sem compromissos na agenda esta semana.";
+  },
+});
+
+/* ---- plugin: spotify (abre ou toca a playlist do link) ---- */
+function idPlaylist(u) { const m = (u || "").match(/playlist[\/:]([A-Za-z0-9]+)/); return m ? m[1] : null; }
+function botoesPlaylist() {
+  const id = idPlaylist(cfg.playlist); if (!id) return [];
+  return [
+    { rotulo: "▶ Tocar aqui", aoClicar: () => embed("https://open.spotify.com/embed/playlist/" + id + "?utm_source=generator&theme=0") },
+    { rotulo: "Abrir no Spotify", aoClicar: () => window.open("https://open.spotify.com/playlist/" + id, "_blank") },
+  ];
+}
+registrar({
+  id: "spotify", nome: "Spotify", descricao: "Playlist de entrada (cole o link em Configuracoes)",
+  executar: async (texto) => {
+    const n = norm(texto);
+    if (!(/\b(toca|tocar|toque|coloca|colocar|abre|abrir|inicia|iniciar|manda)\b.*\b(playlist|musica|musicas|spotify|som)\b/.test(n) || /^(playlist|spotify)\b/.test(n))) return null;
+    if (!idPlaylist(cfg.playlist)) return "Cola o link da sua playlist em Configuracoes que eu deixo pronta pra voce.";
+    return { texto: "Playlist pronta. Toca num botao pra comecar.", botoes: botoesPlaylist() };
+  },
+  aoIniciar: async () => (idPlaylist(cfg.playlist) ? { texto: "Sua playlist esta pronta, so tocar no botao.", botoes: botoesPlaylist() } : null),
+});
+
+/* ---------- rotina do dia (ao tocar na esfera) ---------- */
+let rotinaFeita = false;
+async function rotinaDia() {
+  if (pensando) return;
+  pensando = true; rotuloPens = "preparando seu dia..."; recalcular(); pararVoz(); clearInterval(timer); $("holo").hidden = true;
+  try {
+    const h = new Date().getHours(), sau = h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
+    const partes = [sau + ((cfg.apelido || "").trim() ? ", " + cfg.apelido.trim() : "") + ". Hoje e " + new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" }) + "."];
+    const botoes = [];
+    const res = await Promise.all(plugsAtivos().filter((p) => p.aoIniciar).map(async (p) => {
+      try { return await Promise.race([p.aoIniciar(API), new Promise((_, rj) => setTimeout(() => rj(new Error("demorou demais")), 12000))]); }
+      catch (e) { return (p.nome || p.id) + ": nao consegui agora (" + ((e && e.message) || "erro") + ")."; }
+    }));
+    res.forEach((r) => {
+      if (!r) return;
+      if (typeof r === "string") partes.push(r); else { if (r.texto) partes.push(r.texto); if (r.botoes) botoes.push.apply(botoes, r.botoes); }
+    });
+    const txt = partes.join("\n\n");
+    mostrar(txt, true); if (botoes.length) mostrarBotoes(botoes); falar(txt.slice(0, 1200), false);
+  } finally { pensando = false; rotuloPens = ""; recalcular(); }
+}
+$("bRotina").addEventListener("click", () => { rotinaFeita = true; rotinaDia(); });
+$("bRodar").addEventListener("click", () => { fecharTudo(); rotinaFeita = true; rotinaDia(); });
+
+/* ---------- configuracoes dos plugins e da voz ---------- */
+$("cCidade").addEventListener("input", (e) => { cfg.cidade = e.target.value; cfg.lat = null; cfg.lon = null; salvar(); $("notaCidade").textContent = ""; });
+$("bLoc").addEventListener("click", async () => {
+  $("notaCidade").textContent = "Pegando sua localizacao...";
+  try { await pegarLocal(); $("cCidade").value = ""; $("notaCidade").textContent = "Localizacao salva."; }
+  catch (e) { $("notaCidade").textContent = e.message; }
+});
+$("cPlaylist").addEventListener("input", (e) => { cfg.playlist = e.target.value.trim(); salvar(); });
+$("cRotina").addEventListener("change", (e) => { cfg.rotina = e.target.checked; salvar(); });
+document.querySelectorAll(".preset").forEach((b) => b.addEventListener("click", () => {
+  cfg.vel = Number(b.dataset.vel); cfg.tom = Number(b.dataset.tom); salvar(); aplicar(); falar("Assim que eu vou soar. Tudo certo por aqui.", true);
+}));
+$("bProx").addEventListener("click", () => {
+  const pt = vozes.filter((v) => (v.lang || "").toLowerCase().indexOf("pt") === 0), lista = pt.length ? pt : vozes;
+  if (!lista.length) return;
+  const i = lista.findIndex((v) => v.name === cfg.vozNome);
+  cfg.vozNome = lista[(i + 1) % lista.length].name; salvar(); carregarVozes(); falar("Esta e a minha nova voz.", true);
+});
+
+/* plugins extras: pasta plugins/ do repositorio, listados em plugins/lista.json */
+fetch("plugins/lista.json", { cache: "no-store" }).then((r) => (r.ok ? r.json() : [])).then((l) => {
+  (Array.isArray(l) ? l : []).forEach((n) => {
+    if (typeof n !== "string" || !/^[\w-]+$/.test(n)) return;
+    const sc = document.createElement("script"); sc.src = "plugins/" + n + ".js"; document.body.appendChild(sc);
+  });
+}).catch(() => {});
+
+/* ---------- particulas ---------- */
+const cv = $("cv"), ctx = cv.getContext("2d");
+let W = 0, H = 0, cx = 0, cy = 0, R = 100, P = [], poeira = [], ang = 0, energia = 0, ultimo = 0;
+const INCL = 0.38;
+
+function ajustar() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + "px"; cv.style.height = H + "px";
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  cx = W / 2; cy = H * 0.33; R = Math.min(W * 0.34, H * 0.19);
+}
+function criarParticulas(n) {
+  P = []; const ga = Math.PI * (3 - Math.sqrt(5));
+  for (let i = 0; i < n; i++) {
+    const y = 1 - (i / (n - 1)) * 2, r = Math.sqrt(1 - y * y), th = ga * i;
+    P.push({ x: Math.cos(th) * r, y: y, z: Math.sin(th) * r, f: Math.random() * 6.283, v: 0.6 + Math.random() * 0.8, anel: false });
+  }
+  const na = Math.floor(n * 0.2);
+  for (let i = 0; i < na; i++) {
+    const a = Math.random() * 6.283, rr = 1.38 + (Math.random() - 0.5) * 0.1;
+    P.push({ x: Math.cos(a) * rr, y: (Math.random() - 0.5) * 0.05, z: Math.sin(a) * rr, f: Math.random() * 6.283, v: 0.6 + Math.random() * 0.8, anel: true });
+  }
+  poeira = [];
+  for (let i = 0; i < 60; i++) poeira.push({ x: Math.random(), y: Math.random(), vx: (Math.random() - 0.5) * 0.01, vy: (Math.random() - 0.5) * 0.01, s: 0.8 + Math.random() * 1.4 });
+}
+
+function quadro(t) {
+  requestAnimationFrame(quadro);
+  if (document.hidden) return;
+  const dt = Math.min((t - ultimo) / 1000 || 0.016, 0.05); ultimo = t;
+  const alvo = fase === "pensando" ? 1 : fase === "ouvindo" ? 0.8 : fase === "falando" ? 0.6 : 0.12;
+  energia += (alvo - energia) * Math.min(dt * 4, 1);
+  ang += dt * (0.22 + energia * 1.5);
+
+  ctx.clearRect(0, 0, W, H);
+  ctx.globalAlpha = 1;
+  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.7);
+  g.addColorStop(0, "rgba(" + corRGB + "," + (0.1 + energia * 0.14) + ")"); g.addColorStop(1, "rgba(" + corRGB + ",0)");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+  // poeira ao fundo
+  ctx.fillStyle = corHex;
+  for (const d of poeira) {
+    d.x = (d.x + d.vx * dt + 1) % 1; d.y = (d.y + d.vy * dt + 1) % 1;
+    ctx.globalAlpha = 0.18 + 0.12 * Math.sin(t / 900 + d.s * 5);
+    ctx.fillRect(d.x * W, d.y * H, d.s, d.s);
+  }
+
+  // aneis de HUD
+  ctx.globalAlpha = 0.3 + energia * 0.2; ctx.strokeStyle = corHex; ctx.lineWidth = 1;
+  ctx.setLineDash([2, 9]); ctx.lineDashOffset = -ang * 40;
+  ctx.beginPath(); ctx.arc(cx, cy, R * 1.62, 0, 6.283); ctx.stroke();
+  ctx.setLineDash([R * 0.5, R * 0.35]); ctx.lineDashOffset = ang * 55; ctx.globalAlpha = 0.22 + energia * 0.2;
+  ctx.beginPath(); ctx.arc(cx, cy, R * 1.78, 0, 6.283); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // esfera de particulas
+  const respira = 1 + Math.sin(t / 620) * 0.02 + (fase === "falando" ? (Math.sin(t / 90) + Math.sin(t / 57)) * 0.022 : 0) + (fase === "pensando" ? Math.sin(t / 140) * 0.03 : 0) + (fase === "ouvindo" ? Math.sin(t / 200) * 0.04 : 0);
+  const ca = Math.cos(ang), sa = Math.sin(ang), ci = Math.cos(INCL), si = Math.sin(INCL);
+  ctx.fillStyle = corHex;
+  ctx.globalCompositeOperation = "lighter";   // particulas se somam e brilham
+  for (let k = 0; k < P.length; k++) {
+    const p = P[k];
+    const x = p.x * ca - p.z * sa, zz = p.x * sa + p.z * ca;
+    const y2 = p.y * ci - zz * si, z2 = p.y * si + zz * ci;
+    const ru = 1 + Math.sin(t / 700 * p.v + p.f) * 0.025 * (1 + energia * 3);
+    const esc = R * respira * ru, persp = 1 / (1 - z2 * 0.22);
+    const sx = cx + x * esc * persp, sy = cy + y2 * esc * persp;
+    const prof = (z2 + 1.6) / 3.2;
+    const tam = (p.anel ? 1.4 : 1.9) * persp * (0.7 + prof * 0.9) * (0.85 + energia * 0.5);
+    ctx.globalAlpha = Math.min(1, (0.14 + prof * 0.86) * (p.anel ? 0.85 : 1));
+    ctx.fillRect(sx - tam / 2, sy - tam / 2, tam, tam);
+  }
+  ctx.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = 1;
+}
+
+let arrasto = null, toque = null;
+cv.addEventListener("pointerdown", (e) => { arrasto = e.clientX; toque = { x: e.clientX, y: e.clientY, t: Date.now() }; });
+cv.addEventListener("pointerup", (e) => {
+  if (toque && Math.abs(e.clientX - toque.x) < 8 && Math.abs(e.clientY - toque.y) < 8 && Date.now() - toque.t < 500 &&
+      cfg.rotina !== false && !rotinaFeita && (cfg.chave || "").trim() && !pensando) { rotinaFeita = true; rotinaDia(); }
+  toque = null;
+});
+cv.addEventListener("pointermove", (e) => { if (arrasto === null) return; ang += (e.clientX - arrasto) * 0.012; arrasto = e.clientX; });
+window.addEventListener("pointerup", () => { arrasto = null; });
+window.addEventListener("resize", ajustar);
+
+/* ---------- inicio ---------- */
+aplicar(); ajustar(); criarParticulas(cfg.dens); carregarVozes();
+if (temVoz) speechSynthesis.onvoiceschanged = carregarVozes;
+requestAnimationFrame(quadro);
+if ("serviceWorker" in navigator) { window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {})); }
+if (!(cfg.chave || "").trim()) { mostrar("Ola! Antes de comecar, toque na engrenagem, escolha o cerebro e cole sua chave da API.", false); }
+else if (cfg.rotina !== false) {
+  mostrar("Sistemas online. Toque na esfera ou no botao pra eu preparar o seu dia.", false);
+  mostrarBotoes([{ rotulo: "Iniciar o dia", aoClicar: () => { rotinaFeita = true; rotinaDia(); } }]);
+} else mostrar("Sistemas online. Em que posso ajudar?", false);
+</script>
+</body>
+</html>
